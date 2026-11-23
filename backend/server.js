@@ -2,6 +2,7 @@ import express from "express";
 import env from "dotenv";
 import {Pool} from "pg";
 import {z} from "zod";
+import cors from "cors";
 env.config();
 
 const pool = new Pool({
@@ -10,38 +11,41 @@ const pool = new Pool({
 
 const app = express();
 const PORT = process.env.PORT;
+app.use(cors());
+app.use(express.json());
+
+
 const leadsSchema = z.object({
   name : z.string().trim().min(1 , "name is required").max(100),
   email : z.string().trim().toLowerCase().email('Invalid email'),
   phone : z.string().regex(/^\d{10}$/ , "phone number must contain at least 10 digits").max(15 , "phone number must not exceed 15 digits"),
   company : z.string().trim().min(1 , "company name is required"),
   source : z.string().trim().min(1 , "source name is required"),
-  status : z.enum(['contacted', 'qualified', 'converted', 'lost']).default('new'),
+  status : z.enum(['New', 'Contacted', 'Qualified', 'Lost']).default('New'),
 })
 
-app.use(express.json());
+
 
 app.get('/getLeads', async(req,res) => {
-  const parsedData =leadsSchema.safeParse(req.query);
-  if(!parsedData.success){
-    return res.status(400).json({errors: parsedData.error.flatten().fieldErrors})
-  }
-  const {search, status} = parsedData.data;
-  try {
-    let response;
-    if(status){
-       response = await pool.query("SELECT * FROM leads WHERE status = $1 ORDER BY created_at DESC ",[status]);
-       res.status(200).json(response.rows);
-    }else if(search){
-       response = await pool.query("SELECT * FROM leads WHERE name ILIKE $1 ORDER BY created_at DESC",[`%${search}%`]);
-       res.status(200).json(response.rows);
-    } else{ 
-     response = await pool.query("SELECT * FROM leads ORDER BY created_at DESC");
-     res.status(200).json(response.rows);
-}
+  
+  const {search, status} = req.query;
+   try {
+    let query = "SELECT * FROM leads WHERE 1=1";
+    const params = [];
+    if (status) {
+      params.push(status);
+      query += ` AND status = $${params.length}`;
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      query += ` AND name ILIKE $${params.length}`;
+    }
+    query += " ORDER BY created_at DESC";
+    const response = await pool.query(query, params);
+    res.status(200).json(response.rows);
   } catch (error) {
-    console.error("error while fetching leads :",error);
-    res.status(500).json({error : "error fetching leads"});
+    console.error("error while fetching leads :", error);
+    res.status(500).json({ error: "error fetching leads" });
   }
 })
 
@@ -63,11 +67,12 @@ app.post("/addLeads", async(req,res) => {
   }
 })
 
-app.patch("/leads/:id", async(req, res) => {const parsedData =leadsSchema.safeParse(req.body);
+app.patch("/leads/:id", async(req, res) => {
+  const parsedData =leadsSchema.partial().safeParse(req.body);
   if(!parsedData.success){
     return res.status(400).json({errors: parsedData.error.flatten().fieldErrors})
   }
-  const {name, email, phone, company, source,status} = req.parsedData.data;
+  const {name, email, phone, company, source, status} = parsedData.data;
   const id = req.params.id;
   try {
     const response = await pool.query(`UPDATE leads SET
@@ -80,7 +85,15 @@ app.patch("/leads/:id", async(req, res) => {const parsedData =leadsSchema.safePa
       updated_at = NOW()
       WHERE id = $7
       RETURNING *`,
-    [name, email, phone, company, source, status, id]);
+    [
+      name ?? null,
+      email ?? null,
+      phone ?? null,
+      company ?? null,
+      source ?? null,
+      status ?? null,
+      id
+    ]);
 
     if(response.rowCount == 0){
       return res.status(404).json({error :" Lead not found"})
@@ -91,17 +104,17 @@ app.patch("/leads/:id", async(req, res) => {const parsedData =leadsSchema.safePa
       return res.status(400).json({error : "email already exists"});
     }
     console.error("error while updating :", error);
-    res.status(500).json({error : "error while updating status"})
+    res.status(500).json({error : error.message || "error while updating status"})
   }
 })
 
 
-app.delete("/leads/:id", async(req, res) => {
+app.delete("/deleteLeads/:id", async(req, res) => {
   const id = req.params.id;
   try {
     const response = await pool.query("DELETE FROM leads WHERE id = $1",[id])
     if(response.rowCount == 0){
-      res.status(404).json({error : "lead not found"});
+     return res.status(404).json({error : "lead not found"});
     }
     res.status(200).json({success : "lead deleted succesfully"});
   } catch (error) {
