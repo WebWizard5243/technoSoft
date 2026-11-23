@@ -1,7 +1,7 @@
 import express from "express";
 import env from "dotenv";
 import {Pool} from "pg";
-
+import {z} from "zod";
 env.config();
 
 const pool = new Pool({
@@ -10,11 +10,23 @@ const pool = new Pool({
 
 const app = express();
 const PORT = process.env.PORT;
+const leadsSchema = z.object({
+  name : z.string().trim().min(1 , "name is required").max(100),
+  email : z.string().trim().toLowerCase().email('Invalid email'),
+  phone : z.string().regex(/^\d{10}$/ , "phone number must contain at least 10 digits").max(15 , "phone number must not exceed 15 digits"),
+  company : z.string().trim().min(1 , "company name is required"),
+  source : z.string().trim().min(1 , "source name is required"),
+  status : z.enum(['contacted', 'qualified', 'converted', 'lost']).default('new'),
+})
 
 app.use(express.json());
 
 app.get('/getLeads', async(req,res) => {
-  const {search, status} = req.query;
+  const parsedData =leadsSchema.safeParse(req.query);
+  if(!parsedData.success){
+    return res.status(400).json({errors: parsedData.error.flatten().fieldErrors})
+  }
+  const {search, status} = parsedData.data;
   try {
     let response;
     if(status){
@@ -34,7 +46,11 @@ app.get('/getLeads', async(req,res) => {
 })
 
 app.post("/addLeads", async(req,res) => {
-  const {name, email, phone, company, source, status} = req.body;
+  const parsedData =leadsSchema.safeParse(req.body);
+  if(!parsedData.success){
+    return res.status(400).json({errors: parsedData.error.flatten().fieldErrors})
+  }
+  const {name, email, phone, company, source, status} = parsedData.data;
   try {
     const response = await pool.query("INSERT INTO leads(name, email, phone, company,source, status) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[name, email, phone, company,source, status || 'new']);
     res.status(201).json(response.rows[0]);
@@ -47,8 +63,11 @@ app.post("/addLeads", async(req,res) => {
   }
 })
 
-app.patch("/leads/:id", async(req, res) => {
-  const {name, email, phone, company, source,status} = req.body;
+app.patch("/leads/:id", async(req, res) => {const parsedData =leadsSchema.safeParse(req.body);
+  if(!parsedData.success){
+    return res.status(400).json({errors: parsedData.error.flatten().fieldErrors})
+  }
+  const {name, email, phone, company, source,status} = req.parsedData.data;
   const id = req.params.id;
   try {
     const response = await pool.query(`UPDATE leads SET
