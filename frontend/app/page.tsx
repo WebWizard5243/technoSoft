@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Table, { customerData } from "./components/Table";
 import EditLeadModal from "./components/EditLeadModal";
+import AddLeadModal from "./components/AddLeadModal";
 import StatCards from "./components/StatCards";
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
@@ -12,8 +13,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<customerData | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
@@ -48,12 +49,10 @@ export default function Home() {
     };
   }, []);
 
-  // 1. Opens the edit modal with this single selected lead
   const handleEdit = (selectedLead: customerData) => {
     setEditingLead(selectedLead);
   };
 
-  // 2. Sends ONLY this single updated lead to the backend
   const handleSaveLead = async (updatedLead: customerData) => {
     try {
       const res = await fetch(`${API_URL}/leads/${updatedLead.id}`, {
@@ -97,7 +96,6 @@ export default function Home() {
     }
   };
 
-  // Filter leads based on both Search and Status widget selection
   const filteredLeads = leads.filter((lead) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
@@ -118,14 +116,35 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50/50 p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Lead Manager
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage, track, and update your leads pipeline.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Lead Manager
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Manage, track, and update your leads pipeline.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-xl shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Add Lead
+          </button>
         </div>
 
         {error && (
@@ -134,14 +153,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* 5 Status Widget Boxes */}
         <StatCards
           leads={leads}
           selectedStatus={selectedStatus}
           onSelectStatus={(status) => setSelectedStatus(status)}
         />
 
-        {/* Search Bar & Controls */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <svg
@@ -195,7 +212,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Leads Table */}
         {loading ? (
           <div className="p-8 text-center bg-white rounded-2xl border border-slate-200/90 text-slate-500 text-sm">
             Loading leads...
@@ -208,7 +224,6 @@ export default function Home() {
           />
         )}
 
-        {/* Edit Lead Modal */}
         {editingLead && (
           <EditLeadModal
             key={editingLead.id}
@@ -218,6 +233,13 @@ export default function Home() {
             onSave={handleSaveLead}
           />
         )}
+
+        <AddLeadModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onLeadAdded={(newLead) => setLeads((prev) => [newLead, ...prev])}
+          apiUrl={API_URL}
+        />
       </div>
     </main>
   );
