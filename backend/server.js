@@ -11,7 +11,11 @@ const pool = new Pool({
 
 const app = express();
 const PORT = process.env.PORT;
-app.use(cors());
+app.use(cors({
+  origin:[
+    "https://techno-soft-ws3n.vercel.app/"
+  ]
+}));
 app.use(express.json());
 
 
