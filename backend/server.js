@@ -15,7 +15,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://techno-soft-ws3n.vercel.app/",
+      "https://techno-soft-ws3n.vercel.app",
       /^https:\/\/techno-soft-.*-kaifnawaz92-2147s-projects\.vercel\.app$/,
     ],
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
