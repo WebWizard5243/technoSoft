@@ -11,11 +11,17 @@ const pool = new Pool({
 
 const app = express();
 const PORT = process.env.PORT;
-app.use(cors({
-  origin:[
-    "https://techno-soft-ws3n.vercel.app/"
-  ]
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://techno-soft-o337.vercel.app",
+      /^https:\/\/techno-soft-.*-kaifnawaz92-2147s-projects\.vercel\.app$/,
+    ],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
 app.use(express.json());
 
 
